@@ -13,7 +13,7 @@ import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
 from pwdlib import PasswordHash
@@ -40,15 +40,19 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "strict").lower()
 if COOKIE_SAMESITE not in {"strict", "lax", "none"}:
     raise RuntimeError("COOKIE_SAMESITE must be strict, lax, or none.")
-FRONTEND_ORIGINS = {
-    origin.strip()
-    for origin in os.getenv(
-        "FRONTEND_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,"
-        "http://localhost:5500,http://127.0.0.1:5500",
-    ).split(",")
-    if origin.strip()
-}
+configured_origins = os.getenv("FRONTEND_ORIGINS")
+if configured_origins:
+    FRONTEND_ORIGINS = {origin.strip().rstrip("/") for origin in configured_origins.split(",") if origin.strip()}
+elif APP_ENV == "production":
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "").strip().rstrip("/")
+    FRONTEND_ORIGINS = {render_url} if render_url else set()
+else:
+    FRONTEND_ORIGINS = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    }
 
 database_url = os.getenv("DATABASE_URL", "sqlite:///./lifeos.db")
 if APP_ENV == "production":
@@ -56,6 +60,8 @@ if APP_ENV == "production":
         raise RuntimeError("SECRET_KEY must contain at least 32 characters in production.")
     if not COOKIE_SECURE:
         raise RuntimeError("Set COOKIE_SECURE=true in production.")
+    if not FRONTEND_ORIGINS:
+        raise RuntimeError("Configure FRONTEND_ORIGINS or deploy behind a Render web-service URL.")
     if COOKIE_SAMESITE == "none" and not COOKIE_SECURE:
         raise RuntimeError("SameSite=None cookies require COOKIE_SECURE=true.")
     if not database_url.startswith(("postgresql://", "postgresql+psycopg://")):
@@ -184,6 +190,8 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-LifeOS-Request"],
 )
 
+frontend_index = Path(__file__).resolve().parent.parent / "frontend" / "index.html"
+
 
 @app.middleware("http")
 async def protect_api_requests(request: Request, call_next: Any) -> Response:
@@ -195,6 +203,11 @@ async def protect_api_requests(request: Request, call_next: Any) -> Response:
         if int(request.headers.get("content-length", "0")) > 1_000_000:
             return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
     return await call_next(request)
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend() -> FileResponse:
+    return FileResponse(frontend_index)
 
 
 def get_db():

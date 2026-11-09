@@ -140,3 +140,9 @@ def test_mutations_require_an_allowed_browser_origin(client: TestClient):
         json={"display_name": "Other User", "email": "other@example.com", "password": "a-very-long-test-password"},
     )
     assert untrusted.status_code == 403
+
+
+def test_root_serves_frontend(client: TestClient):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "LifeOS" in response.text

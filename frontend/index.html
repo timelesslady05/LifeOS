@@ -766,7 +766,12 @@
     const authDescription = document.getElementById("auth-description");
     const authSubmit = document.getElementById("auth-submit");
     const authError = document.getElementById("auth-error");
-    const apiBase = window.LIFEOS_API_URL || "http://localhost:8000";
+    const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+    const apiBase = window.LIFEOS_API_URL || (
+      window.location.protocol.startsWith("http") && !localHosts.has(window.location.hostname)
+        ? window.location.origin
+        : "http://localhost:8000"
+    );
     let accessToken = null;
     let currentUser = null;
     let authMode = "login";

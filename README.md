@@ -143,6 +143,37 @@ python -m pytest backend/tests
 The tests cover authentication, session handling, request-origin checks,
 workspace validation, and isolation between accounts.
 
+## Deploy a free demo on Render
+
+The repository includes a Render Blueprint in [`render.yaml`](./render.yaml).
+It creates a free Python web service and a new free PostgreSQL database in
+Oregon. The web service serves both the frontend and API from one HTTPS
+address, so the browser can use same-origin requests for sign-in and workspace
+data.
+
+1. Push the project to the `main` branch of the GitHub repository connected to
+   Render.
+2. Sign in to the [Render Dashboard](https://dashboard.render.com/).
+3. Choose **New** → **Blueprint** and select the `timelesslady05/LifeOS`
+   repository and `main` branch.
+4. Review the resources from `render.yaml` and approve creation of the web
+   service and PostgreSQL database.
+5. Wait for the database and service to finish deploying. Open the web
+   service's `onrender.com` URL to register an account and try the app. Check
+   the service's **Logs** if the deploy or health check fails.
+
+The Blueprint generates a production secret and connects the API to the new
+database automatically. It does not use or change any other Render database.
+If the `lifeos-api` or `lifeos-db` resource names are already taken in your
+Render workspace, rename them in `render.yaml` before creating the Blueprint.
+
+**Free-tier limitations:** free web services sleep after 15 minutes without
+traffic and can take about a minute to wake up. A free Render Postgres database
+expires 30 days after creation. Its data is not suitable for long-term storage;
+upgrade to a persistent paid database before relying on the deployed app for
+personal records. Free Render services are for demos and testing, not
+production use.
+
 ## Accounts and data
 
 - Each account has its own workspace. The API scopes workspace reads and writes
